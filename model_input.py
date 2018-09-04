@@ -77,6 +77,11 @@ def read_record(record_dir):
     cv2.destroyAllWindows()
 
 
+def preprocess(image, image_height, image_width, is_training):
+    processed_image = vgg_preprocessing.preprocess_image(image, image_height, image_width, is_training)
+    return processed_image
+
+
 def parse_and_preprocess_data(example_proto, image_height, image_width, is_training):
     features = {'img_raw': tf.FixedLenFeature([], tf.string, ''),
                 'label': tf.FixedLenFeature([], tf.int64, 0)}
@@ -84,7 +89,7 @@ def parse_and_preprocess_data(example_proto, image_height, image_width, is_train
     image = tf.image.decode_jpeg(parsed_features['img_raw'], channels=3)
     label = tf.cast(parsed_features['label'], tf.int64)
     image = tf.cast(image, tf.float32)
-    processed_image = vgg_preprocessing.preprocess_image(image, image_height, image_width, is_training)
+    processed_image = preprocess(image, image_height, image_width, is_training)
     return processed_image, label
 
 
