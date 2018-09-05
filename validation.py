@@ -31,7 +31,7 @@ def validation():
         logdir=FLAGS.log_dir,
         eval_op=update_op,
         final_op=value_op)
-    print(metric_values)
+    print('model: {}, acc: {}'.format(checkpoint_path, metric_values))
 
 
 def parse_arguments():

@@ -6,6 +6,9 @@ from slim_module.nets import vgg
 from slim_module.preprocessing import vgg_preprocessing
 import tensorflow.contrib.slim as slim
 
+TRAINING_EXAMPLES_NUM = 20000
+VALIDATION_EXAMPLES_NUM = 5000
+
 
 def image_to_tfrecord(image_list, label_list, record_dir):
     writer = tf.python_io.TFRecordWriter(record_dir)
