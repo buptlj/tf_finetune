@@ -10,13 +10,7 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 
 def train_slim():
-    dataset = tf.data.TFRecordDataset(['./data/train_img.tfrecord'])
-    dataset = dataset.map(lambda example: model_input.parse_and_preprocess_data(example, 224, 224, True))
-    # dataset = dataset.shuffle(20000).batch(FLAGS.batch_size).repeat()
-    dataset = dataset.batch(FLAGS.batch_size).repeat()
-    iterator = dataset.make_one_shot_iterator()
-
-    images, labels = iterator.get_next()
+    images, labels = model_input.input_fn(['./data/train_img.tfrecord'], FLAGS.batch_size, 224, 224, True)
     logits = model_input.inference(images, 2, True)
     loss = model_input.loss(logits, labels)
 
@@ -121,4 +115,6 @@ def parse_arguments():
 
 if __name__ == '__main__':
     FLAGS, unparsed = parse_arguments()
-    train()
+    # train()
+    train_slim()
+

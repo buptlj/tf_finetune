@@ -108,3 +108,44 @@ def loss(logits, labels):
     tf.losses.sparse_softmax_cross_entropy(labels, logits)
     loss = tf.losses.get_total_loss()
     return loss
+
+
+def model_fn(features, labels, mode, params):
+    logits = inference(features, params['class_num'], mode == tf.estimator.ModeKeys.TRAIN)
+    predictions = {
+        # Generate predictions (for PREDICT and EVAL mode)
+        "classes": tf.argmax(input=logits, axis=1),
+        # Add `softmax_tensor` to the graph. It is used for PREDICT and by the `logging_hook`.
+        "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+    }
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
+
+    loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+    accuracy = tf.metrics.accuracy(labels=labels, predictions=predictions["classes"])
+    tf.summary.scalar('accuracy', accuracy[1])
+
+    if mode == tf.estimator.ModeKeys.TRAIN:
+        global_step = tf.train.get_global_step()
+        opt = tf.train.AdamOptimizer(0.0001)
+        grad = opt.compute_gradients(loss)
+        train_op = opt.apply_gradients(grad, global_step)
+        return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
+
+    # Add evaluation metrics (for EVAL mode)
+    eval_metric_ops = {"eval_accuracy": accuracy}
+    return tf.estimator.EstimatorSpec(mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
+
+
+def input_fn(filenames, batch_size, image_height, image_width, is_training):
+    dataset = tf.data.TFRecordDataset(filenames)
+    dataset = dataset.map(lambda example:
+                          parse_and_preprocess_data(example, image_height, image_width, is_training))
+
+    dataset = dataset.batch(batch_size)
+    if is_training:
+        dataset = dataset.repeat()
+
+    iterator = dataset.make_one_shot_iterator()
+    features, labels = iterator.get_next()
+    return features, labels

@@ -6,19 +6,13 @@ import argparse
 
 
 def validation():
-    dataset = tf.data.TFRecordDataset(['./data/validation_img.tfrecord'])
-    dataset = dataset.map(lambda example: model_input.parse_and_preprocess_data(example, 224, 224, False))
-    dataset = dataset.batch(FLAGS.batch_size)
-
-    iterator = dataset.make_one_shot_iterator()
-    images, labels = iterator.get_next()
-
+    images, labels = model_input.input_fn(['./data/validation_img.tfrecord'], FLAGS.batch_size, 224, 224, False)
     logits = model_input.inference(images, 2, False)
     prediction = tf.argmax(tf.nn.softmax(logits), axis=1)
 
     # Choose the metrics to compute:
     value_op, update_op = tf.metrics.accuracy(labels, prediction)
-    num_batchs = math.ceil(5000 / FLAGS.batch_size)
+    num_batchs = math.ceil(model_input.VALIDATION_EXAMPLES_NUM / FLAGS.batch_size)
 
     print('Running evaluation...')
     # Only load latest checkpoint
