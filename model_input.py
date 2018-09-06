@@ -126,6 +126,11 @@ def model_fn(features, labels, mode, params):
     tf.summary.scalar('accuracy', accuracy[1])
 
     if mode == tf.estimator.ModeKeys.TRAIN:
+        # exclude = [v.name for v in tf.global_variables() if 'Adam' in v.name]
+        exclude = ['fully_connected/weights', 'fully_connected/biases']
+        variables_to_restore = slim.get_variables_to_restore(exclude=exclude)
+        tf.train.init_from_checkpoint('./model/vgg_16.ckpt', {v.name.split(':')[0]: v for v in variables_to_restore})
+
         global_step = tf.train.get_global_step()
         opt = tf.train.AdamOptimizer(0.0001)
         grad = opt.compute_gradients(loss)

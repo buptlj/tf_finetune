@@ -32,7 +32,7 @@ def parse_arguments():
     parser.add_argument('--batch_size', type=int, help='Number of images to process in a batch',
                         default=32)
     parser.add_argument('--max_step', type=int, help='Number of steps to run trainer',
-                        default=1300)
+                        default=200)
     parser.add_argument('--log_dir', type=str, help='Directory where to write event logs and checkpoint',
                         default='./log')
     parser.add_argument('--vgg16_model_path', type=str, help='the model ckpt of vgg16',
