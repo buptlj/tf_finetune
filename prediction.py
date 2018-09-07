@@ -5,9 +5,9 @@ import numpy as np
 import os
 
 
-def pred(test_data, log_dir):
-    images = tf.placeholder(tf.float32, shape=[None, 224, 224, 3])
-    logits = model_input.inference(images, 2, False)
+def pred(test_data, log_dir, model_path, image_size):
+    images = tf.placeholder(tf.float32, shape=[None, image_size, image_size, 3])
+    logits = model_input.inference(model_path, images, 2, False)
     predict = tf.nn.softmax(logits)
     saver = tf.train.Saver()
     with tf.Session() as sess:
@@ -24,7 +24,7 @@ def pred(test_data, log_dir):
             file = os.path.join(test_data, f)
             img = cv2.imread(file)
             image = tf.cast(img, tf.float32)
-            image = model_input.preprocess(image, 224, 224, False)
+            image = model_input.preprocess(image, model_path, image_size, False)
             imgs = tf.expand_dims(image, axis=0)
             imgs = imgs.eval()
             pre = sess.run(predict, feed_dict={images: imgs})
@@ -43,4 +43,4 @@ def pred(test_data, log_dir):
 
 
 if __name__ == '__main__':
-    pred('./data/test1', './log')
+    pred('./data/test1', './log', model_path='./model/vgg_16.ckpt', image_size=224)

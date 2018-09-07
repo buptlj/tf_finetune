@@ -5,9 +5,10 @@ import math
 import argparse
 
 
-def validation():
-    images, labels = model_input.input_fn(['./data/validation_img.tfrecord'], FLAGS.batch_size, 224, 224, False)
-    logits = model_input.inference(images, 2, False)
+def validation(model_path, image_size):
+    images, labels = model_input.input_fn(['./data/validation_img.tfrecord'],
+                                          FLAGS.batch_size, model_path, image_size, False)
+    logits = model_input.inference(model_path, images, 2, False)
     prediction = tf.argmax(tf.nn.softmax(logits), axis=1)
 
     # Choose the metrics to compute:
@@ -34,10 +35,14 @@ def parse_arguments():
                         default=32)
     parser.add_argument('--log_dir', type=str, help='Directory where to write event logs and checkpoint',
                         default='./log')
+    parser.add_argument('--vgg16_model_path', type=str, help='the model ckpt of vgg16',
+                        default='./model/vgg_16.ckpt')
+    parser.add_argument('--vgg16_image_size', type=int, help='the size of input image of model vgg16',
+                        default=224)
     FLAGS, unparsed = parser.parse_known_args()
     return FLAGS, unparsed
 
 
 if __name__ == '__main__':
     FLAGS, unparsed = parse_arguments()
-    validation()
+    validation(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)

@@ -2,8 +2,10 @@ import tensorflow as tf
 import numpy as np
 import os
 import cv2
-from slim_module.nets import vgg
-from slim_module.preprocessing import vgg_preprocessing
+from tensorflow.models.research.slim.nets import vgg
+from tensorflow.models.research.slim.preprocessing import vgg_preprocessing
+from tensorflow.models.research.slim.nets import inception_v3
+from tensorflow.models.research.slim.preprocessing import inception_preprocessing
 import tensorflow.contrib.slim as slim
 
 TRAINING_EXAMPLES_NUM = 20000
@@ -80,27 +82,43 @@ def read_record(record_dir):
     cv2.destroyAllWindows()
 
 
-def preprocess(image, image_height, image_width, is_training):
-    processed_image = vgg_preprocessing.preprocess_image(image, image_height, image_width, is_training)
+def preprocess(image, pre_trained_model, image_size, is_training):
+    if 'vgg_16' in pre_trained_model:
+        processed_image = vgg_preprocessing.preprocess_image(image, image_size, image_size, is_training)
+    elif 'inception_v3' in pre_trained_model:
+        processed_image = inception_preprocessing.preprocess_image(image, image_size, image_size, is_training)
+    else:
+        print('wrong input pre_trained_model')
+        return
     return processed_image
 
 
-def parse_and_preprocess_data(example_proto, image_height, image_width, is_training):
+def parse_and_preprocess_data(example_proto, pre_trained_model, image_size, is_training):
     features = {'img_raw': tf.FixedLenFeature([], tf.string, ''),
                 'label': tf.FixedLenFeature([], tf.int64, 0)}
     parsed_features = tf.parse_single_example(example_proto, features)
     image = tf.image.decode_jpeg(parsed_features['img_raw'], channels=3)
     label = tf.cast(parsed_features['label'], tf.int64)
     image = tf.cast(image, tf.float32)
-    processed_image = preprocess(image, image_height, image_width, is_training)
+    processed_image = preprocess(image, pre_trained_model, image_size, is_training)
     return processed_image, label
 
 
-def inference(processed_images, class_num, is_training):
-    with slim.arg_scope(vgg.vgg_arg_scope()):
-        net, endpoints = vgg.vgg_16(processed_images, num_classes=None, is_training=is_training)
-    net = tf.squeeze(net, [1, 2])
-    logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
+def inference(pre_trained_model, processed_images, class_num, is_training):
+    if 'vgg_16' in pre_trained_model:
+        print('load model: vgg_16')
+        with slim.arg_scope(vgg.vgg_arg_scope()):
+            net, endpoints = vgg.vgg_16(processed_images, num_classes=None, is_training=is_training)
+        net = tf.squeeze(net, [1, 2])
+        logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
+        # fc6 = endpoints['vgg_16/fc6']
+        # net = tf.squeeze(fc6, [1, 2])
+        # logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
+    elif 'inception_v3' in pre_trained_model:
+        pass
+    else:
+        print('wrong input pre_trained_model')
+        return
     return logits
 
 
@@ -111,7 +129,7 @@ def loss(logits, labels):
 
 
 def model_fn(features, labels, mode, params):
-    logits = inference(features, params['class_num'], mode == tf.estimator.ModeKeys.TRAIN)
+    logits = inference(params['model_path'], features, params['class_num'], mode == tf.estimator.ModeKeys.TRAIN)
     predictions = {
         # Generate predictions (for PREDICT and EVAL mode)
         "classes": tf.argmax(input=logits, axis=1),
@@ -129,9 +147,9 @@ def model_fn(features, labels, mode, params):
         # exclude = [v.name for v in tf.global_variables() if 'Adam' in v.name]
         exclude = ['fully_connected/weights', 'fully_connected/biases']
         variables_to_restore = slim.get_variables_to_restore(exclude=exclude)
-        tf.train.init_from_checkpoint('./model/vgg_16.ckpt', {v.name.split(':')[0]: v for v in variables_to_restore})
+        tf.train.init_from_checkpoint(params['model_path'], {v.name.split(':')[0]: v for v in variables_to_restore})
 
-        global_step = tf.train.get_global_step()
+        global_step = tf.train.get_or_create_global_step()
         opt = tf.train.AdamOptimizer(0.0001)
         grad = opt.compute_gradients(loss)
         train_op = opt.apply_gradients(grad, global_step)
@@ -142,10 +160,10 @@ def model_fn(features, labels, mode, params):
     return tf.estimator.EstimatorSpec(mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
 
 
-def input_fn(filenames, batch_size, image_height, image_width, is_training):
+def input_fn(filenames, batch_size, pre_trained_model, image_size, is_training):
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(lambda example:
-                          parse_and_preprocess_data(example, image_height, image_width, is_training))
+                          parse_and_preprocess_data(example, pre_trained_model, image_size, is_training))
 
     dataset = dataset.batch(batch_size)
     if is_training:
