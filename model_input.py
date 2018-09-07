@@ -115,7 +115,11 @@ def inference(pre_trained_model, processed_images, class_num, is_training):
         # net = tf.squeeze(fc6, [1, 2])
         # logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
     elif 'inception_v3' in pre_trained_model:
-        pass
+        print('load model: inception_v3')
+        with slim.arg_scope(inception_v3.inception_v3_arg_scope()):
+            net, endpoints = inception_v3.inception_v3(processed_images, num_classes=None, is_training=is_training)
+        net = tf.squeeze(net, [1, 2])
+        logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
     else:
         print('wrong input pre_trained_model')
         return

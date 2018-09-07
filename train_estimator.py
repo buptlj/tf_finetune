@@ -34,17 +34,22 @@ def parse_arguments():
     parser.add_argument('--batch_size', type=int, help='Number of images to process in a batch',
                         default=32)
     parser.add_argument('--max_step', type=int, help='Number of steps to run trainer',
-                        default=200)
+                        default=2000)
     parser.add_argument('--log_dir', type=str, help='Directory where to write event logs and checkpoint',
                         default='./log')
     parser.add_argument('--vgg16_model_path', type=str, help='the model ckpt of vgg16',
                         default='./model/vgg_16.ckpt')
     parser.add_argument('--vgg16_image_size', type=int, help='the size of input image of model vgg16',
                         default=224)
+    parser.add_argument('--inception_v3_model_path', type=str, help='the model ckpt of inception_v3',
+                        default='./model/inception_v3.ckpt')
+    parser.add_argument('--inception_v3_image_size', type=int, help='the size of input image of model inception_v3',
+                        default=299)
     FLAGS, unparsed = parser.parse_known_args()
     return FLAGS, unparsed
 
 
 if __name__ == '__main__':
     FLAGS, unparsed = parse_arguments()
-    train(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
+    # train(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
+    train(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
