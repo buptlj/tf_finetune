@@ -6,6 +6,7 @@ from tensorflow.models.research.slim.nets import vgg
 from tensorflow.models.research.slim.preprocessing import vgg_preprocessing
 from tensorflow.models.research.slim.nets import inception_v3
 from tensorflow.models.research.slim.preprocessing import inception_preprocessing
+from tensorflow.models.research.slim.nets import resnet_v1
 import tensorflow.contrib.slim as slim
 
 TRAINING_EXAMPLES_NUM = 20000
@@ -83,7 +84,7 @@ def read_record(record_dir):
 
 
 def preprocess(image, pre_trained_model, image_size, is_training):
-    if 'vgg_16' in pre_trained_model:
+    if ('vgg_16' in pre_trained_model) or ('resnet_v1_50' in pre_trained_model):
         processed_image = vgg_preprocessing.preprocess_image(image, image_size, image_size, is_training)
     elif 'inception_v3' in pre_trained_model:
         processed_image = inception_preprocessing.preprocess_image(image, image_size, image_size, is_training)
@@ -117,9 +118,12 @@ def inference(pre_trained_model, processed_images, class_num, is_training):
     elif 'inception_v3' in pre_trained_model:
         print('load model: inception_v3')
         with slim.arg_scope(inception_v3.inception_v3_arg_scope()):
-            net, endpoints = inception_v3.inception_v3(processed_images, num_classes=None, is_training=is_training)
-        net = tf.squeeze(net, [1, 2])
-        logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
+            logits, endpoints = inception_v3.inception_v3(processed_images, class_num, is_training=is_training)
+        # net = tf.squeeze(net, [1, 2])
+        # logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
+    elif 'resnet_v1_50' in pre_trained_model:
+        with slim.arg_scope(resnet_v1.resnet_arg_scope()):
+            logits, endpoints = resnet_v1.resnet_v1_50(processed_images, class_num, is_training=is_training)
     else:
         print('wrong input pre_trained_model')
         return
@@ -130,6 +134,44 @@ def loss(logits, labels):
     tf.losses.sparse_softmax_cross_entropy(labels, logits)
     loss = tf.losses.get_total_loss()
     return loss
+
+
+def variables_to_restore_and_train(pre_trained_model):
+    if 'vgg_16' in pre_trained_model:
+        exclude = ['fully_connected']
+    elif 'inception_v3' in pre_trained_model:
+        exclude = ['InceptionV3/Logits', 'InceptionV3/AuxLogits']
+    elif 'resnet_v1_50' in pre_trained_model:
+        exclude = ['resnet_v1/logits']
+    else:
+        exclude = []
+    variables_to_restore = slim.get_variables_to_restore(exclude=exclude)
+    variables_to_train = []
+    for sc in exclude:
+        variables_to_train += slim.get_trainable_variables(sc)
+    return variables_to_train, variables_to_restore
+
+
+def get_train_op(total_loss, variables_to_train, variables_to_restore, batch_size, learning_rate, global_step):
+    num_batches_per_epoch = TRAINING_EXAMPLES_NUM / batch_size
+    decay_steps = int(num_batches_per_epoch)
+
+    # Decay the learning rate exponentially based on the number of steps.
+    lr = tf.train.exponential_decay(learning_rate=learning_rate,
+                                    global_step=global_step,
+                                    decay_steps=decay_steps,
+                                    decay_rate=0.9,
+                                    staircase=True)
+    opt1 = tf.train.GradientDescentOptimizer(lr)
+    opt2 = tf.train.GradientDescentOptimizer(0.01 * lr)
+    grads = tf.gradients(total_loss, variables_to_train + variables_to_restore)
+    grads1 = grads[:len(variables_to_train)]
+    grads2 = grads[len(variables_to_train):]
+    train_op1 = opt1.apply_gradients(zip(grads1, variables_to_train), global_step)
+    train_op2 = opt2.apply_gradients(zip(grads2, variables_to_restore))
+    train_op = tf.group(train_op1, train_op2)
+
+    return train_op
 
 
 def model_fn(features, labels, mode, params):
@@ -148,15 +190,15 @@ def model_fn(features, labels, mode, params):
     tf.summary.scalar('accuracy', accuracy[1])
 
     if mode == tf.estimator.ModeKeys.TRAIN:
-        # exclude = [v.name for v in tf.global_variables() if 'Adam' in v.name]
-        exclude = ['fully_connected/weights', 'fully_connected/biases']
-        variables_to_restore = slim.get_variables_to_restore(exclude=exclude)
+        variables_to_train, variables_to_restore = variables_to_restore_and_train(params['model_path'])
         tf.train.init_from_checkpoint(params['model_path'], {v.name.split(':')[0]: v for v in variables_to_restore})
 
         global_step = tf.train.get_or_create_global_step()
-        opt = tf.train.AdamOptimizer(0.0001)
-        grad = opt.compute_gradients(loss)
-        train_op = opt.apply_gradients(grad, global_step)
+        train_op = get_train_op(loss, variables_to_train, variables_to_restore,
+                                params['batch_size'], params['lr'], global_step)
+        # opt = tf.train.AdamOptimizer(params['lr'])
+        # grad = opt.compute_gradients(loss)
+        # train_op = opt.apply_gradients(grad, global_step)
         return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
 
     # Add evaluation metrics (for EVAL mode)

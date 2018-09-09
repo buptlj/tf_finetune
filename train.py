@@ -5,6 +5,7 @@ import model_input
 import os
 import math
 import numpy as np
+from tensorflow.python import debug as tf_debug
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -14,7 +15,7 @@ def train_slim(model_path, image_size):
     logits = model_input.inference(model_path, images, 2, True)
     loss = model_input.loss(logits, labels)
 
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.0001)
+    optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
     train_op = slim.learning.create_train_op(loss, optimizer, summarize_gradients=True)
     variables_to_restore = slim.get_variables_to_restore()
     init_fn = slim.assign_from_checkpoint_fn(model_path, variables_to_restore, ignore_missing_vars=True)
@@ -60,21 +61,21 @@ def train(model_path, image_size):
     images, labels = iterator.get_next()
     is_training = tf.placeholder(dtype=tf.bool)
     logits = model_input.inference(model_path, images, 2, is_training)
+    pred = tf.nn.softmax(logits)
     top_k_op = tf.nn.in_top_k(logits, labels, 1)
     loss = model_input.loss(logits, labels)
 
+    variables_to_train, variables_to_restore = model_input.variables_to_restore_and_train(model_path)
     global_step = tf.train.get_or_create_global_step()
-    opt = tf.train.AdamOptimizer(0.0001)
-    grad = opt.compute_gradients(loss)
-    train_op = opt.apply_gradients(grad, global_step)
+    train_op = model_input.get_train_op(loss, variables_to_train, variables_to_restore, FLAGS.batch_size,
+                                        FLAGS.learning_rate, global_step)
 
     with tf.Session() as sess:
+        # sess = tf_debug.LocalCLIDebugWrapperSession(sess)
         # 先初始化所有变量，避免有些变量未读取而产生错误
         init = tf.global_variables_initializer()
         sess.run(init)
-        # exclusions = ['vgg_16/dropout7', 'vgg_16/fc8']
-        # 创建一个列表，包含除了exclusions之外所有需要读取的变量
-        variables_to_restore = slim.get_variables_to_restore()
+
         # 建立一个从预训练模型checkpoint中读取上述列表中的相应变量的参数的函数
         init_fn = slim.assign_from_checkpoint_fn(model_path, variables_to_restore, ignore_missing_vars=True)
         # restore模型参数
@@ -86,7 +87,9 @@ def train(model_path, image_size):
         saver.save(sess, ckpt, 0)
         train_step = 0
         while train_step < FLAGS.max_step:
-            _, train_loss = sess.run([train_op, loss], feed_dict={is_training: True})
+            _, train_loss, logits_op, pred_op, labels_op = sess.run([train_op, loss, logits, pred, labels],
+                                                                    feed_dict={is_training: True})
+            # print('logits: {}, pred:{}, labels:{}, loss: {}'.format(logits_op, pred_op, labels_op, train_loss))
             train_step += 1
             if train_step % 100 == 0:
                 saver.save(sess, ckpt, train_step)
@@ -102,10 +105,12 @@ def train(model_path, image_size):
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--learning_rate', type=float, help='Initial learning rate.',
+                        default=0.001)
     parser.add_argument('--batch_size', type=int, help='Number of images to process in a batch',
                         default=32)
     parser.add_argument('--max_step', type=int, help='Number of steps to run trainer',
-                        default=200)
+                        default=2000)
     parser.add_argument('--log_dir', type=str, help='Directory where to write event logs and checkpoint',
                         default='./log')
     parser.add_argument('--vgg16_model_path', type=str, help='the model ckpt of vgg16',
@@ -124,5 +129,6 @@ if __name__ == '__main__':
     FLAGS, unparsed = parse_arguments()
     # train(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
     # train_slim(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
-    train_slim(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
+    # train_slim(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
+    train(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
 

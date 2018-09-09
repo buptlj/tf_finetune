@@ -49,5 +49,5 @@ def parse_arguments():
 
 if __name__ == '__main__':
     FLAGS, unparsed = parse_arguments()
-    # validation(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
-    validation(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
+    validation(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
+    # validation(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)

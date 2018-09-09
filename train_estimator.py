@@ -14,9 +14,12 @@ def train(model_path, image_size):
     mnist_classifier = tf.estimator.Estimator(model_fn=model_input.model_fn,
                                               model_dir=FLAGS.log_dir,
                                               config=my_checkpoint_config,
-                                              params={'class_num': 2, 'model_path': model_path})
-    tensor_to_log = {'probabilities': 'softmax_tensor'}
-    logging_hook = tf.train.LoggingTensorHook(tensors=tensor_to_log, every_n_iter=100)
+                                              params={'class_num': 2,
+                                                      'model_path': model_path,
+                                                      'lr': FLAGS.learning_rate,
+                                                      'batch_size': FLAGS.batch_size})
+    # tensor_to_log = {'probabilities': 'softmax_tensor'}
+    # logging_hook = tf.train.LoggingTensorHook(tensors=tensor_to_log, every_n_iter=100)
 
     mnist_classifier.train(
         input_fn=lambda: model_input.input_fn(['./data/train_img.tfrecord'],
@@ -31,6 +34,8 @@ def train(model_path, image_size):
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--learning_rate', type=float, help='Initial learning rate.',
+                        default=0.00001)
     parser.add_argument('--batch_size', type=int, help='Number of images to process in a batch',
                         default=32)
     parser.add_argument('--max_step', type=int, help='Number of steps to run trainer',
@@ -51,5 +56,5 @@ def parse_arguments():
 
 if __name__ == '__main__':
     FLAGS, unparsed = parse_arguments()
-    # train(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
-    train(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
+    train(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
+    # train(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
