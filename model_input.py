@@ -137,15 +137,19 @@ def loss(logits, labels):
 def variables_to_restore_and_train(pre_trained_model):
     if 'vgg_16' in pre_trained_model:
         exclude = ['fully_connected']
+        train_sc = ['fully_connected']
     elif 'inception_v3' in pre_trained_model:
         exclude = ['InceptionV3/Logits', 'InceptionV3/AuxLogits']
+        train_sc = ['InceptionV3/Logits', 'InceptionV3/AuxLogits']
     elif 'resnet_v1_50' in pre_trained_model:
         exclude = ['resnet_v1_50/logits']
+        train_sc = ['resnet_v1_50/logits']
     else:
         exclude = []
+        train_sc = []
     variables_to_restore = slim.get_variables_to_restore(exclude=exclude)
     variables_to_train = []
-    for sc in exclude:
+    for sc in train_sc:
         variables_to_train += slim.get_trainable_variables(sc)
     return variables_to_train, variables_to_restore
 
