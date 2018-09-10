@@ -3,27 +3,31 @@ import tensorflow.contrib.slim as slim
 import model_input
 import math
 import argparse
+import os
+
+tf.logging.set_verbosity(tf.logging.INFO)
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
-def validation(model_path, image_size):
+def validation(model_path, image_size, batch_size, log_dir):
     images, labels = model_input.input_fn(['./data/validation_img.tfrecord'],
-                                          FLAGS.batch_size, model_path, image_size, False)
+                                          batch_size, model_path, image_size, False)
     logits = model_input.inference(model_path, images, 2, False)
-    prediction = tf.argmax(tf.nn.softmax(logits), axis=1)
+    prediction = tf.argmax(logits, axis=1)
 
     # Choose the metrics to compute:
     value_op, update_op = tf.metrics.accuracy(labels, prediction)
-    num_batchs = math.ceil(model_input.VALIDATION_EXAMPLES_NUM / FLAGS.batch_size)
+    num_batchs = math.ceil(model_input.VALIDATION_EXAMPLES_NUM / batch_size)
 
     print('Running evaluation...')
     # Only load latest checkpoint
-    checkpoint_path = tf.train.latest_checkpoint(FLAGS.log_dir)
+    checkpoint_path = tf.train.latest_checkpoint(log_dir)
 
     metric_values = slim.evaluation.evaluate_once(
         num_evals=num_batchs,
         master='',
         checkpoint_path=checkpoint_path,
-        logdir=FLAGS.log_dir,
+        logdir=log_dir,
         eval_op=update_op,
         final_op=value_op)
     print('model: {}, acc: {}'.format(checkpoint_path, metric_values))
@@ -53,6 +57,6 @@ def parse_arguments():
 
 if __name__ == '__main__':
     FLAGS, unparsed = parse_arguments()
-    validation(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
-    # validation(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
-    # validation(model_path=FLAGS.resnet_v1_50_model_path, image_size=FLAGS.resnet_v1_50_image_size)
+    # validation(FLAGS.vgg16_model_path, FLAGS.vgg16_image_size, FLAGS.batch_size, FLAGS.log_dir)
+    # validation(FLAGS.inception_v3_model_path, FLAGS.inception_v3_image_size, FLAGS.batch_size, FLAGS.log_dir)
+    validation(FLAGS.resnet_v1_50_model_path, FLAGS.resnet_v1_50_image_size, FLAGS.batch_size, FLAGS.log_dir)

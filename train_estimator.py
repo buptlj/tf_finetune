@@ -2,10 +2,10 @@ import tensorflow as tf
 import os
 import argparse
 import model_input
+import validation
 
 tf.logging.set_verbosity(tf.logging.INFO)
-
-# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 
 def train(model_path, image_size):
@@ -29,17 +29,17 @@ def train(model_path, image_size):
     # eval_results = mnist_classifier.evaluate(
     #     input_fn=lambda: model_input.input_fn(['.data/validation_img.tfrecord'],
     #                                           FLAGS.batch_size, model_path, image_size, False))
-    # print('validation acc: {}'.format(eval_results))
+    validation.validation(model_path, image_size, FLAGS.batch_size, FLAGS.log_dir)
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument('--learning_rate', type=float, help='Initial learning rate.',
-                        default=0.00001)
+                        default=0.001)
     parser.add_argument('--batch_size', type=int, help='Number of images to process in a batch',
                         default=32)
     parser.add_argument('--max_step', type=int, help='Number of steps to run trainer',
-                        default=2000)
+                        default=200)
     parser.add_argument('--log_dir', type=str, help='Directory where to write event logs and checkpoint',
                         default='./log')
     parser.add_argument('--vgg16_model_path', type=str, help='the model ckpt of vgg16',

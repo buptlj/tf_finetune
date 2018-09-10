@@ -17,7 +17,7 @@ def train_slim(model_path, image_size):
 
     optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
     train_op = slim.learning.create_train_op(loss, optimizer, summarize_gradients=True)
-    variables_to_restore = slim.get_variables_to_restore()
+    variables_to_train, variables_to_restore = model_input.variables_to_restore_and_train(model_path)
     init_fn = slim.assign_from_checkpoint_fn(model_path, variables_to_restore, ignore_missing_vars=True)
     slim.learning.train(train_op=train_op, logdir=FLAGS.log_dir,
                         log_every_n_steps=100, number_of_steps=FLAGS.max_step,
@@ -131,9 +131,9 @@ def parse_arguments():
 
 if __name__ == '__main__':
     FLAGS, unparsed = parse_arguments()
-    train(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
+    # train(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
     # train_slim(model_path=FLAGS.vgg16_model_path, image_size=FLAGS.vgg16_image_size)
     # train_slim(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
-    # train(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
+    train(model_path=FLAGS.inception_v3_model_path, image_size=FLAGS.inception_v3_image_size)
     # train(model_path=FLAGS.resnet_v1_50_model_path, image_size=FLAGS.resnet_v1_50_image_size)
 
