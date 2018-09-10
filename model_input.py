@@ -119,8 +119,6 @@ def inference(pre_trained_model, processed_images, class_num, is_training):
         print('load model: inception_v3')
         with slim.arg_scope(inception_v3.inception_v3_arg_scope()):
             logits, endpoints = inception_v3.inception_v3(processed_images, class_num, is_training=is_training)
-        # net = tf.squeeze(net, [1, 2])
-        # logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
     elif 'resnet_v1_50' in pre_trained_model:
         with slim.arg_scope(resnet_v1.resnet_arg_scope()):
             logits, endpoints = resnet_v1.resnet_v1_50(processed_images, class_num, is_training=is_training)
@@ -142,7 +140,7 @@ def variables_to_restore_and_train(pre_trained_model):
     elif 'inception_v3' in pre_trained_model:
         exclude = ['InceptionV3/Logits', 'InceptionV3/AuxLogits']
     elif 'resnet_v1_50' in pre_trained_model:
-        exclude = ['resnet_v1/logits']
+        exclude = ['resnet_v1_50/logits']
     else:
         exclude = []
     variables_to_restore = slim.get_variables_to_restore(exclude=exclude)
@@ -196,9 +194,6 @@ def model_fn(features, labels, mode, params):
         global_step = tf.train.get_or_create_global_step()
         train_op = get_train_op(loss, variables_to_train, variables_to_restore,
                                 params['batch_size'], params['lr'], global_step)
-        # opt = tf.train.AdamOptimizer(params['lr'])
-        # grad = opt.compute_gradients(loss)
-        # train_op = opt.apply_gradients(grad, global_step)
         return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
 
     # Add evaluation metrics (for EVAL mode)
