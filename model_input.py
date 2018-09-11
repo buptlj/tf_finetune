@@ -87,7 +87,11 @@ def preprocess(image, pre_trained_model, image_size, is_training):
     if ('vgg_16' in pre_trained_model) or ('resnet_v1_50' in pre_trained_model):
         processed_image = vgg_preprocessing.preprocess_image(image, image_size, image_size, is_training)
     elif 'inception_v3' in pre_trained_model:
-        processed_image = inception_preprocessing.preprocess_image(image, image_size, image_size, is_training)
+        # processed_image = inception_preprocessing.preprocess_image(image, image_size, image_size, is_training)
+        image = tf.expand_dims(image, 0)
+        processed_image = tf.image.resize_bilinear(image, [image_size, image_size])
+        processed_image = tf.squeeze(processed_image)
+        processed_image.set_shape([None, None, 3])
     else:
         print('wrong input pre_trained_model')
         return
@@ -118,7 +122,12 @@ def inference(pre_trained_model, processed_images, class_num, is_training):
     elif 'inception_v3' in pre_trained_model:
         print('load model: inception_v3')
         with slim.arg_scope(inception_v3.inception_v3_arg_scope()):
-            logits, endpoints = inception_v3.inception_v3(processed_images, class_num, is_training=is_training)
+            net, endpoints = inception_v3.inception_v3_base(processed_images)
+        kernel_size = inception_v3._reduced_kernel_size_for_small_input(net, [8, 8])
+        net = slim.avg_pool2d(net, kernel_size, padding='VALID',
+                              scope='AvgPool_1a_{}x{}'.format(*kernel_size))
+        net = tf.squeeze(net, [1, 2])
+        logits = slim.fully_connected(net, num_outputs=class_num, activation_fn=None)
     elif 'resnet_v1_50' in pre_trained_model:
         with slim.arg_scope(resnet_v1.resnet_arg_scope()):
             logits, endpoints = resnet_v1.resnet_v1_50(processed_images, class_num, is_training=is_training)
@@ -139,8 +148,8 @@ def variables_to_restore_and_train(pre_trained_model):
         exclude = ['fully_connected']
         train_sc = ['fully_connected']
     elif 'inception_v3' in pre_trained_model:
-        exclude = ['InceptionV3/Logits', 'InceptionV3/AuxLogits']
-        train_sc = ['InceptionV3/Logits', 'InceptionV3/AuxLogits']
+        exclude = ['InceptionV3/Logits', 'InceptionV3/AuxLogits', 'fully_connected']
+        train_sc = ['fully_connected']
     elif 'resnet_v1_50' in pre_trained_model:
         exclude = ['resnet_v1_50/logits']
         train_sc = ['resnet_v1_50/logits']
@@ -164,8 +173,9 @@ def get_train_op(total_loss, variables_to_train, variables_to_restore, batch_siz
                                     decay_steps=decay_steps,
                                     decay_rate=0.9,
                                     staircase=True)
-    opt1 = tf.train.GradientDescentOptimizer(lr)
-    opt2 = tf.train.GradientDescentOptimizer(0.01 * lr)
+    opt1 = tf.train.MomentumOptimizer(lr, momentum=0.9)
+    opt2 = tf.train.MomentumOptimizer(0.01 * lr, momentum=0.9)
+    # opt2 = tf.train.GradientDescentOptimizer(0.01 * lr)
     grads = tf.gradients(total_loss, variables_to_train + variables_to_restore)
     grads1 = grads[:len(variables_to_train)]
     grads2 = grads[len(variables_to_train):]
